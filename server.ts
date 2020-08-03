@@ -13,7 +13,6 @@ import {HERO_DETAIL_ID} from './src/app/app.module';
 // The Express app is exported so that it can be used by serverless Functions.
 export function app() {
   const server = express();
-  const puppeteer = require('puppeteer');
   const fs = require('fs');
   const distFolder = join(process.cwd(), 'dist/browser');
   const indexHtml = existsSync(join(distFolder, 'index.original.html')) ? 'index.original.html' : 'index';
@@ -37,6 +36,8 @@ export function app() {
     maxAge: '1y'
   }));
 
+  let generateHTML;
+
   // All regular routes use the Universal engine
   // @ts-ignore
   server.get('*', (req, res) => {
@@ -46,6 +47,7 @@ export function app() {
     // tslint:disable-next-line:max-line-length
     res.render(indexHtml, { req, providers: [{ provide: APP_BASE_HREF, useValue: req.baseUrl }, { provide: HERO_DETAIL_ID, useValue: req.query.id }] }, (err, html) => {
       // console.log('HTML ======' +html);
+      generateHTML = html;
       // tslint:disable-next-line:no-shadowed-variable
       fs.writeFile('generatedHTML.html', html, (writeFileErr) => {
         // throws an error, you could also catch it here
@@ -59,6 +61,18 @@ export function app() {
   });
 
   return server;
+}
+
+async function printPDF(html) {
+  const puppeteer = require('puppeteer');
+  const browser = await puppeteer.launch({  executablePath: './node_modules/puppeteer/.local-chromium/win64-756035/chrome-win/chrome.exe'});
+  // const browser = await puppeteer.launch({ headless: false });
+  const page = await browser.newPage();
+  await page.setContent(html, {waitUntil: 'networkidle0'});
+  const pdf = await page.pdf({ format: 'A4' });
+
+  await browser.close();
+  return pdf;
 }
 
 function run() {
