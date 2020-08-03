@@ -4,7 +4,7 @@ import { ngExpressEngine } from '@nguniversal/express-engine';
 import * as express from 'express';
 import { join } from 'path';
 
-import { AppServerModule } from './src/main.server';
+import {AppServerModule, renderModuleFactory} from './src/main.server';
 import { APP_BASE_HREF } from '@angular/common';
 import { existsSync } from 'fs';
 import {InjectionToken} from '@angular/core';
@@ -13,6 +13,8 @@ import {HERO_DETAIL_ID} from './src/app/app.module';
 // The Express app is exported so that it can be used by serverless Functions.
 export function app() {
   const server = express();
+  const puppeteer = require('puppeteer');
+  const fs = require('fs');
   const distFolder = join(process.cwd(), 'dist/browser');
   const indexHtml = existsSync(join(distFolder, 'index.original.html')) ? 'index.original.html' : 'index';
 
@@ -36,11 +38,24 @@ export function app() {
   }));
 
   // All regular routes use the Universal engine
+  // @ts-ignore
   server.get('*', (req, res) => {
     // tslint:disable-next-line:max-line-length
     console.log('req.query ======' +req.query);
+
     // tslint:disable-next-line:max-line-length
-    res.render(indexHtml, { req, providers: [{ provide: APP_BASE_HREF, useValue: req.baseUrl }, { provide: HERO_DETAIL_ID, useValue: req.query.id }] });
+    res.render(indexHtml, { req, providers: [{ provide: APP_BASE_HREF, useValue: req.baseUrl }, { provide: HERO_DETAIL_ID, useValue: req.query.id }] }, (err, html) => {
+      // console.log('HTML ======' +html);
+      // tslint:disable-next-line:no-shadowed-variable
+      fs.writeFile('generatedHTML.html', html, (writeFileErr) => {
+        // throws an error, you could also catch it here
+        if (writeFileErr) throw writeFileErr;
+        // success case, the file was saved
+        console.log('HTML Save for Dynamic Route');
+      });
+      // res.send('Hello');
+      res.send(html);
+    });
   });
 
   return server;
